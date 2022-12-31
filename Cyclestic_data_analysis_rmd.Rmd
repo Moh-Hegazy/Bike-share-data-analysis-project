@@ -1,0 +1,472 @@
+---
+title: "cyclistic_data_project"
+author: "Mohamed Hegazy"
+date: "2022-12-29"
+output: html_document
+---
+## Setting up my environment
+loading necessary libraries
+```{r loading packages}
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(plyr)
+```
+
+## Loading data
+loading four loading csv files representing te last year's four quarters and assigning to variables 
+```{r}
+df_tr_2019_q2 <- read.csv('Divvy_Trips_2019_Q2.csv',)
+df_tr_2019_q3 <- read.csv('Divvy_Trips_2019_Q3.csv')
+df_tr_2019_q4 <- read.csv('Divvy_Trips_2019_Q4.csv')
+df_tr_2020_q1 <- read.csv('Divvy_Trips_2020_Q1.csv')
+```
+### checking summaries
+```{r}
+head(df_tr_2019_q2)
+head(df_tr_2019_q3)
+head(df_tr_2019_q4)
+head(df_tr_2020_q1)
+```
+### change chr data types to date time, change int data type to date
+```{r}
+str(df_tr_2019_q3)
+str(df_tr_2019_q4)
+str(df_tr_2020_q1)
+str(df_tr_2019_q2)
+```
+### column names ,column arrangement and data type per column is the same for DFs'
+df_tr_2019_q4, df_tr_2019_q3 thus we will merge them in one data frame
+```{r}
+df_tr_2019_q3_q4 <- rbind( df_tr_2019_q4, df_tr_2019_q3 )
+```
+### chcecking Data frames df_tr_2019_q3_q4 and df_tr_2019_q2
+
+```{r}
+glimpse(df_tr_2019_q3_q4)
+glimpse(df_tr_2019_q2)
+```
+### column names are diffrent for both of the above two dataframes 
+### we will unify so we can join DFs' 
+```{r}
+colnames(df_tr_2019_q2) = colnames(df_tr_2019_q3)
+colnames(df_tr_2019_q2)
+head(df_tr_2019_q2)
+```
+### joining 2019 dataframes
+```{r}
+df_tr_2019_q2_q3_q4 <- rbind( df_tr_2019_q2, df_tr_2019_q3_q4 )
+str(df_tr_2019_q2_q3_q4)
+```
+### checking 2020 DF
+```{r}
+colnames(df_tr_2020_q1)
+glimpse(df_tr_2020_q1)
+```
+### columns are not the same as in 2019 dataframe
+### columns rideable_type, start_lat, start_lng, end_lat and end_lng are not in 2019 DF.
+### we will remove these columns from df_tr_2020_q1
+### columns to be removed are number 2,9,10,11,12
+### there is only one type of rideable_type which is "docked_bike" so this column is not useful
+```{r}
+unique(df_tr_2020_q1$rideable_type)
+df_tr_2020_q1 <- df_tr_2020_q1[-c(2,9,10,11,12)]
+```
+### in data frame df_tr_2019_q2_q3_q4, columns 'bike_id', 'birthyear' and 'gender' cannot be found in data frame df_tr_2020_q1 so we will consider deleting these columns
+### columns to be removed are number 4,11, 12
+```{r}
+colnames(df_tr_2019_q3_q4)
+df_tr_2019_q2_q3_q4 <- df_tr_2019_q2_q3_q4[-c(4,11,12)]
+```
+
+### checking data frames for column values and object types  before joining
+```{r}
+str(df_tr_2019_q2_q3_q4)
+str(df_tr_2020_q1)
+```
+### trip_id object type is "int" in DF df_tr_2019_q2_q3_q4 thus we will change to "chr" 
+```{r}
+df_tr_2019_q2_q3_q4 <- df_tr_2019_q2_q3_q4 %>% 
+  mutate(trip_id = as.character(trip_id))
+```
+
+### start_time and end_time in DF df_tr_2019_q2_q3_q4 object types are both "chr" thus we will change the format to datetime
+```{r}
+df_tr_2019_q2_q3_q4 <- df_tr_2019_q2_q3_q4 %>% 
+  mutate(start_time=ymd_hms(start_time), end_time = ymd_hms(end_time))
+```
+### started_at and ended_at in DF df_tr_202020_q1 object types are both "chr" thus we will change the format to datetime
+
+```{r}
+df_tr_2020_q1 <- df_tr_2020_q1 %>% 
+  mutate( started_at = ymd_hms(started_at) , ended_at = ymd_hms(ended_at))
+```
+
+### tripduration object type in DF df_tr_2019_q2_q3_q4 is "chr" thus we will change the format to datetime
+### chr values include "," and "." separators so we will remove first
+```{r}
+df_tr_2019_q2_q3_q4$tripduration
+df_tr_2019_q2_q3_q4 <- df_tr_2019_q2_q3_q4 %>% 
+  mutate(tripduration=as.numeric(as.numeric(sub(",", "", tripduration, fixed = TRUE))))
+str(df_tr_2019_q2_q3_q4)
+```
+# we will change object type of trip duration to difftime object in seconds
+```{r}
+df_tr_2019_q2_q3_q4 <- df_tr_2019_q2_q3_q4 %>% 
+  mutate(tripduration=as.difftime(tripduration,units =("secs")))
+```
+### started_at and ended_at in DF df_tr_202020_q1 object types are both "chr" thus we will change the format to datetime
+```{r}
+df_tr_2020_q1 <- df_tr_2020_q1 %>% 
+  mutate( started_at = ymd_hms(started_at) , ended_at = ymd_hms(ended_at))
+```
+### tripduration object type in DF df_tr_2019_q2_q3_q4 is "chr" thus we will change the format to datetime
+### chr values include "," and "." separators so we will remove first
+```{r}
+df_tr_2019_q2_q3_q4 <- df_tr_2019_q2_q3_q4 %>% 
+  mutate(tripduration=as.numeric(as.numeric(sub(",", "", tripduration, fixed = TRUE))))
+```
+### we will change object type of trip duration to difftime object in seconds
+```{r}
+df_tr_2019_q2_q3_q4 <- df_tr_2019_q2_q3_q4 %>% 
+  mutate(tripduration=as.difftime(tripduration,units =("secs")))
+```
+### member_casual and usertype columns are the same in both data frames but we need to change values "subscriber" "Customer" in data frame df_tr_2019_q2_q3_q4  to "member" "casual" as in df_tr_2020_q1 
+```{r}
+unique(df_tr_2019_q2_q3_q4$usertype)
+
+df_tr_2019_q2_q3_q4 <- df_tr_2019_q2_q3_q4 %>% 
+  mutate(usertype = recode(usertype, "Subscriber" ="member", "Customer" = "casual"))
+
+unique(df_tr_2019_q2_q3_q4$usertype)
+```
+### in data frame df_tf_2020_q1 there is no column "tripduration thus we will create it using started_at and ended_at columns
+```{r}
+df_tr_2020_q1 <- df_tr_2020_q1 %>% 
+  mutate( tripduration = ended_at-started_at)
+
+str(df_tr_2020_q1)
+```
+## checking na values in both DF's
+
+* first: df_tr_2019_q2_q3_q4
+```{r}
+sum(is.na(df_tr_2019_q2_q3_q4))
+```
+### there are 265 na values in df_tr_2019 DF, we will check Na's by column
+```{r}
+sapply(df_tr_2019_q2_q3_q4, function(x) sum(is.na(x)))
+```
+### all Na's are in the tripduration column, we will caculate trrip duration where it is missing using start_time and end_time values
+```{r}
+head(df_tr_2019_q2_q3_q4[is.na(df_tr_2019_q2_q3_q4$tripduration),])
+head(df_tr_2019_q2_q3_q4)
+```
+### checking rows[1:5] to calculate trip durations and compare to the values in the DF as a sample
+```{r}
+difftime(df_tr_2019_q2_q3_q4$end_time[1:5] , df_tr_2019_q2_q3_q4$start_time[1:5] , units = "secs")
+```
+### calculated tripduration is equal to tripduration in the DF [1]  446 1048  252  357 1007
+```{r}
+tripduration_nas <- df_tr_2019_q2_q3_q4[is.na(df_tr_2019_q2_q3_q4$tripduration),]
+df_tr_2019_q2_q3_q4[is.na(df_tr_2019_q2_q3_q4$tripduration),"tripduration"] = difftime(tripduration_nas$end_time , tripduration_nas$start_time, units = "secs")
+```
+### check if Nas were imputed
+```{r}
+sapply(df_tr_2019_q2_q3_q4, function(x) sum(is.na(x)))
+```
+*second: df_tr_2020_q1
+```{r}
+sum(is.na(df_tr_2020_q1))
+```
+### there is 1 na value in df_tr_2020 DF, we will check Na's by column
+```{r}
+sapply(df_tr_2020_q1, function(x) sum(is.na(x)))
+```
+### it is in the end_station_id, we will impute using station_name from other column
+```{r}
+df_tr_2020_q1[is.na(df_tr_2020_q1$end_station_id),]
+```
+### end_station_name is blank, we will delete this row
+```{r}
+which(is.na(df_tr_2020_q1$end_station_id))
+```
+### row no is 414427
+```{r}
+df_tr_2020_q1 <- df_tr_2020_q1[-414427,]
+sum(is.na(df_tr_2020_q1))
+```
+### looking at both DF's
+```{r}
+str(df_tr_2019_q2_q3_q4)
+str(df_tr_2020_q1)
+```
+### check columns names for both data frames before joining them
+```{r}
+names(df_tr_2019_q2_q3_q4)
+names(df_tr_2020_q1)
+```
+### re-arrange columns in data frame df_tr_2020_q1 to mach arrangement in data frame 
+```{r}
+head(df_tr_2019_q2_q3_q4)
+df_tr_2020_q1 <- df_tr_2020_q1[,c(1:3,9,4:8)]
+names(df_tr_2020_q1)
+df_tr_2020_q1 <- df_tr_2020_q1[,c(1:4,6,5,8,7,9)]
+```
+unifying column names for both DFs so we can join them
+```{r}
+colnames(df_tr_2020_q1) = colnames(df_tr_2019_q2_q3_q4)
+```
+now let`s join the data frames
+```{r}
+df_2019_2020 <- rbind( df_tr_2019_q2_q3_q4, df_tr_2020_q1 )
+glimpse(df_2019_2020)
+str(df_2019_2020)
+```
+adding columns with the weekday and the hours corresponding to the start_time and end_time columns
+```{r}
+df_2019_2020$start_Week_day <- wday(df_2019_2020$start_time, label = TRUE)
+df_2019_2020$end_Week_day <- wday(df_2019_2020$end_time, label = TRUE)
+df_2019_2020$start_hour <- hour(df_2019_2020$start_time)
+df_2019_2020$end_hour <- hour(df_2019_2020$end_time)
+str(df_2019_2020)
+```
+adding columns with the month corresponding to the satrted_at columns
+```{r}
+df_2019_2020$month <- month(df_2019_2020$start_time)
+seasons = function(x){
+  if(x %in% 3:5) return("Spring")
+  if(x %in% 6:8) return("Summer")
+  if(x %in% 9:11) return("Fall")
+  if(x %in% c(12,1,2)) return("Winter")
+  
+}
+```
+adding a column to represent the season of the year in which was the trip
+
+```{r}
+df_2019_2020$season = sapply( df_2019_2020$month , seasons )
+```
+adding a column with categories of tripdurations
+```{r}
+trip_category = function(x){
+    if (x <= 3600) return("less_than_one_hour")
+    if (x > 3600 & x <= 7200) return("one_to_two_hours")
+    if (x > 7200 & x <= 10800) return("two_to_three_hours")
+    if (x > 10800 & x <= 14400) return("three_to_four_hours")
+    if (x > 14400 & x <= 18000) return("four_to_five_hours")
+    if (x > 18000 & x <= 21600) return("five_to_six_hours")
+    if (x > 21600 & x <= 43200) return("six_to_twelve_hours")
+    if (x > 43200 & x <= 86400) return("twelve_hours_to_a_day")
+    if (x > 86400) return("more_than_a_day")
+}
+df_2019_2020$trip_cat = sapply( df_2019_2020$tripduration , trip_category )
+```
+### creating data frames to represent the most popular start and end stations
+```{r}
+df_from_station <- dplyr::count(df_2019_2020, from_station_name, sort = TRUE)
+df_to_station <- dplyr::count(df_2019_2020, to_station_name, sort = TRUE)
+```
+### deleting rows where tripdurations are of negative values
+```{r}
+df_2019_2020[df_2019_2020$tripduration <=0,]
+df_2019_2020 <- df_2019_2020[-which(df_2019_2020$tripduration <=0),]
+```
+### creating a table for bike usage per usertype
+```{r}
+summary_by_type <- df_2019_2020 %>% 
+  group_by(usertype) %>% 
+  dplyr::summarise( usage = sum(tripduration), no_of_trips = n(), mean_trip = mean(tripduration))
+print(summary_by_type)
+```
+### Data Frame for the count of trips of the same From and To stations
+```{r}
+route_counts <- ddply(df_2019_2020, .(df_2019_2020$usertype, df_2019_2020$from_station_name,df_2019_2020$to_station_name)
+                      , nrow)
+names(route_counts) <- c("usertype", "from", "to", "freq")
+route_counts <- route_counts[order(-route_counts$freq),]
+route_counts[route_counts$usertype == "casual",]
+
+head(route_counts[route_counts$usertype == "member",])
+```
+### Data Frame for causal riders who ride from and to the same station
+```{r}
+df_casual_from_to <- df_2019_2020 %>% 
+  filter(usertype=="casual",from_station_name == to_station_name) %>%
+  select(from_station_name, tripduration) %>% 
+  group_by(from_station_name) %>% 
+  dplyr::summarise(no_trips = n() , av_duration = mean(tripduration))
+
+df_casual_from_to[order(-df_casual_from_to$no_trips),]
+
+sum(df_casual_from_to$no_trips)
+```
+* sum of trips for casual riders with the same from_to station = 111784 trip
+```{r}
+sum(df_2019_2020$usertype == "casual")
+```
+* sum of trips for casual riders = 905744 trip
+*  12.3% of casual rides are from and to the same station
+
+
+Data Frame for annual members who ride from and to the same station
+```{r}
+df_member_from_to <- df_2019_2020 %>% 
+  filter(usertype=="member",from_station_name == to_station_name) %>%
+  select(from_station_name, tripduration) %>% 
+  group_by(from_station_name) %>% 
+  dplyr::summarise(no_trips = n() , av_duration = mean(tripduration))
+
+df_member_from_to[order(-df_member_from_to$no_trips),]
+sum(df_member_from_to$no_trips)
+```
+* sum of trips for annual members with the same from_to station = 53453 trip
+```
+sum(df_2019_2020$usertype == "member")
+```
+* sum of trips for annual members = 2973868 trip
+* 1.8% of members' rides are from and to the same station
+
+## Generating data Visualizations
+### 01- bar plot for the number of trips per user type
+number of trips of annual members is almost 3 times that of casual riders
+```{r , echo=FALSE}
+ggplot(df_2019_2020)+geom_bar( mapping = ( aes( x=usertype ) ) ) + 
+  labs(title="Number of trips per user type")
+```
+### 02- bar plot for the sum of trip duration per user type
+shows the total trip duration of casual riders to be 27 % more than members
+```{r , echo=FALSE}
+ggplot(df_2019_2020, aes(usertype, tripduration)) + geom_bar(stat="identity")+ 
+  labs(title="Sum of trip duration per user type")
+```
+### 03- bar plot for the average trip duration per user type
+plot shows that casual users rides tend to be much longer than annual members almost 4 times longer durations
+```{r , echo=FALSE}
+ggplot(df_2019_2020,aes(usertype, tripduration)) + geom_bar(position = "dodge",
+                                                            stat = "summary",
+                                                            fun = "mean") +
+  labs(title="Average trip duration per user type")
+```
+### 04- bar plot for the number of trips per season
+plot shows max number of trips to be months 6 to 9 
+```{r , echo=FALSE}
+ggplot(df_2019_2020) + geom_bar(aes(x= season))+
+  labs(title="Number of trips per season")
+```
+### 05- bar plot for the number of trips per season per user type
+```{r , echo=FALSE}
+ggplot(df_2019_2020) + geom_bar(aes(x= season) )+ facet_wrap(~usertype)+
+  labs(title="Number of trips per season per user type")
+```
+### 06- bar plot for the average trip duration per season per user type
+```{r , echo=FALSE}
+ggplot(df_2019_2020, aes(x= season, y= tripduration)) + geom_bar(position = "dodge", 
+                                                                stat = "summary",
+                                                                fun="mean") + facet_wrap(~usertype)+
+  labs(title="Average trip duration per season per user type")
+```                                
+### 07- bar plot for the number of trips per month
+plot shows max number of trips to be months 6 to 9 
+```{r , echo=FALSE}
+ggplot(df_2019_2020) + geom_bar(aes(x= month)) +
+  labs(title="Number of trips per month")
+```
+### 08- bar plot for the number of trips per month per user type
+```{r , echo=FALSE}
+ggplot(df_2019_2020) + geom_bar(aes(x= month))+ facet_wrap(~usertype) +
+  labs(title="Number of trips per month per user type")
+```
+### 09- bar plot for the mean of trip duration per month
+plot shows max number of trips to be months 6 to 9 
+```{r , echo=FALSE}
+ggplot(df_2019_2020, aes(x= month, y= tripduration)) + geom_bar(position = "dodge", 
+                                                                stat = "summary",
+                                                                fun="mean") +
+  labs(title="Mean of trip duration per month")
+```
+### 10- bar plot for the mean of trip duration per month per user type
+plot shows max number of trips to be months 6 to 9 
+```{r , echo=FALSE}
+ggplot(df_2019_2020, aes(x= month, y= tripduration)) + geom_bar(position = "dodge", 
+                                                                stat = "summary",
+                                                                fun="mean")+ facet_wrap(~usertype)+
+  labs(title="Mean of trip duration per month per user type")
+```
+### 11- bar plot for the number of trips per start day of trips
+```{r , echo=FALSE}
+ggplot(df_2019_2020) + geom_bar( mapping = (aes( x = start_Week_day )))+
+  labs(title="Number of trips per start day of trips")
+```
+
+### 12- bar plot for the number of trips per start day of trips per user type
+```{r , echo=FALSE}
+ggplot(df_2019_2020) + geom_bar( mapping = (aes( x = start_Week_day ))) + facet_wrap(~usertype) +
+  labs(title="Number of trips per start day of trips per user type")
+```
+### 13- bar plot for the mean of trip duration per start day of trips per user type
+```{r , echo=FALSE}
+ggplot(df_2019_2020, aes(x= start_Week_day, y= tripduration)) + geom_bar(position = "dodge", 
+                                                                stat = "summary",
+                                                                fun="mean")+ facet_wrap(~usertype) +
+  labs(title="Mean of trip duration per start day of trips per user type")
+```
+### 14- bar plot for the number of trips per start hour
+```{r , echo=FALSE}
+ggplot(df_2019_2020)+geom_bar( mapping = (aes( x = start_hour ))) +
+  labs(title="Number of trips per start hour")
+```
+### 15- bar plot for the number of trips per start hour per user type
+```{r , echo=FALSE}
+ggplot(df_2019_2020)+geom_bar( mapping = (aes( x = start_hour ))) + facet_wrap(~usertype) +
+  labs(title="Number of trips per start hour per user type")
+```
+### 16- bar plot for the mean of trip duration per start hour per user type
+```{r , echo=FALSE}
+ggplot(df_2019_2020, aes(x= start_hour, y= tripduration)) + geom_bar(position = "dodge", 
+                                                                    stat = "summary",
+                                                                    fun="mean")+ facet_wrap(~usertype) +
+  labs(title="Mean of trip duration per start hour per user type")
+```
+### 17- bar plot for the number of trips per trip category
+```{r , echo=FALSE}
+ggplot(df_2019_2020)+geom_bar( mapping = (aes( x = trip_cat ))) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(title="Number of trips per trip category")
+```
+### 18- bar plot for the number of trips per trip category per user type
+```{r , echo=FALSE}
+ggplot(df_2019_2020)+geom_bar( mapping = (aes( x = trip_cat ))) + facet_wrap(~usertype) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(title="Number of trips per trip category per user type")
+```
+
+## Key findings and recommendations
+### Key findings
+* Number of rides for members are much more than casual riders trips almost 330 %
+* Total trip durations per user type is not proportional to the number of trips for each user type at all, where total trip durations for casual riders are  27 % more than that for annual members
+* Casual riders' trips tend to be much longer than members where the aversge trip length for casual riders is 417 %  the average trip for members
+* The distribution of the number of rides over seasons of the year is the same for both types of users with more trips in summer and fall for both
+* casual riders trip lengths in winter tend to be the longest almost double the trip lengths in the rest of the seasons
+* for casual riders trips drop significantly during winter months November, december, Jaunuary and Febreuar, while maximum trios are during summer months
+* for annual members trip numbers are minimum during winter months November, december, Jaunuary,February and March, while maximum trip numbers are during summer months almost double or more number of trips in summer months
+* Casual riders' trips are much longer in january and February compared to the rest of the year where average trip length is uniform, while length of trips for annual members is almost the same over the months of the year
+* Casual riders tend to go on more rides on the weekends Saturday and Sunday while the number of rides for annual members' is much more on the weekdays
+* 12.5 % of casual rides start and end at the same station which indicates they use bicycles to go cycling not to comute from one place to another
+* Casual riders trips are concentrated between 11 AM and 6 PM with a small peak at 3.00 : 5.00 PM while annual members' trips are concentrated around the start and end hours of the work day i.e. 7.00 : 8.00 Am and 4.00 : 6.00 PM
+* Casual riders tend to go on longer trips in the very early morning i.e. 12 PM to 5 AM, while annual members tip lengths are almost uniform along the hours of the day
+
+
+## Recommendations
+* Calculate the price that a casual rider pays along the year compared to the annuals subscription
+* Offer payment plans including installments for casual riders who pay close to the annual subscription
+* Adding the users' IDs to the data if possible and including them in the data to be collected later on will be very helpful to laser focus on casual riders who are likely to benefit more from annual subscription and bringing the annual subscription to their awarness through phone calls or digital marketing
+* Digital marketing campaigns should be more concentrated in the summer and fall where casual riders use cyclistic bicycles more
+* Digital marketing campaigns should be more concentrated on weekends to target casual riders where use cyclistic bicycles more
+* Digital marketing campaigns should be more concentrated on weekends to target casual riders where use cyclistic bicycles more
+* digital marketing campaigns should be more concentrated on hours other than midday hours where casual riders are likely to scroll social media on their phones while not riding bicycles
+* Offering annual subscriptions capped at certain total trip durations where we can attract casual riders who go cycling on weekends , where subscriber can buy additional credit at a lowered price than a casual rider does
+* Offering gift rides to increase customer loyalty
+* Offering a summer or fall subscription
+* Offering weekend subscription
+
